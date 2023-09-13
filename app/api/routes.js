@@ -31,7 +31,7 @@ export async function getDailyBoxScores() {
 export async function getStandings() {
     let curDate = getDate();
 
-    const url = `https://api.sportradar.us/mlb/trial/v7/en/seasons/${curDate.yyyy}/REG/rankings.json?api_key=${process.env.API_KEY}`
+    const url = `https://api.sportradar.us/mlb/trial/v7/en/seasons/${curDate.yyyy}/REG/standings.json?api_key=${process.env.API_KEY}`
 
     const res = await fetch(url);
     const data = await res.json();
@@ -47,8 +47,8 @@ export async function getDailySchedule() {
 
     const res = data.games.sort((a, b) => {
 
-        first = Date.parse(a.scheduled)
-        second = Date.parse(b.scheduled)
+        let first = Date.parse(a.scheduled)
+        let second = Date.parse(b.scheduled)
 
         if (first > second) {
             return 1;
@@ -58,6 +58,13 @@ export async function getDailySchedule() {
         }
         return 0
     })
-
     return res
+}
+
+export async function getGameSummary(id) {
+    const url = `http://api.sportradar.us/mlb/trial/v7/en/games/${id}/summary.json?api_key=${process.env.API_KEY}`
+
+    const data = await fetch(url).then((res) => res.json())
+
+    return data
 }

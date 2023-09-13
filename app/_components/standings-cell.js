@@ -1,14 +1,17 @@
-export function StandingsCell(props) {
+export default function StandingsCell(props) {
     const data = props.children
     return (
-        <div className="">
+        <div>
             {data.map((team) => (
-                <div className="grid grid-cols-3 gap-12 p-4">
-                    <div className="col-span-2">
+                <div key={team.id} className="grid grid-cols-6 p-4">
+                    <div className="col-span-3">
                         <p>{team.market} {team.name}</p>
                     </div>
+                    <div className="col-span-2">
+                        {`(${team.win}-${team.loss})`}
+                    </div>
                     <div>
-                        W/L Here
+                        {team.win_p}
                     </div>
                 </div>
             ))}

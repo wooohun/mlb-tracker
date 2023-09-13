@@ -1,9 +1,13 @@
-import { getDailySchedule } from "@/app/api/routes";
+import ScheduleCell from "@/app/_components/schedule-cell";
 
-export default async function DailySchedule({children}) {
+export default function DailySchedule({children}) {
     const data = children
 
     return (
-        <div></div>
+        <div>
+            {data.map((game) => (
+                <ScheduleCell key={game.id}>{game}</ScheduleCell>
+            ))}
+        </div>
     )
 }

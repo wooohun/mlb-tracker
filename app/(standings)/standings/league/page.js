@@ -5,7 +5,7 @@ export default function LeagueStandings(props) {
     return (
         <div className="">
             {data.map((division) => (
-                <div key={division.id} className="justify-left">
+                <div key={division.id}>
                     <div className="p-1 text-lg bg-black text-white">
                         {division.name}
                     </div>
