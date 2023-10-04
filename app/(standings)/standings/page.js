@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react'
 
 
 export default function Standings({ children }) {
-    const leagues = children.league.season.leagues;
+    const leagues = children.leagues;
 
     const [league, setLeagues] = useState(leagues[0]);
 

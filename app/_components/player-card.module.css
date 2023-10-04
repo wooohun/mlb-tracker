@@ -1,0 +1,36 @@
+.playerCardBox {
+    background-color: #002D72;
+    color: white;
+    display: flex;
+    padding: 4px;
+    flex-wrap: wrap;
+    justify-content: space-evenly;
+    align-items: center;
+}
+.playerNameBox {
+    text-align: left;
+    flex: 1 0 auto;
+    padding: 4px;
+}
+.playerName {
+    font-size: 30px;
+}
+.teamName {
+    font-size: 16px;
+}
+.teamName:hover {
+    color: rgb(148 163 184);
+}
+.playerInfoBox {
+    text-align: center;
+    font-size: 16px;
+    border-right: 1px solid;
+    flex: 0 1 auto;
+    padding: 0 5px;
+}
+.playerNumberBox {
+    text-align: center;
+    font-size: 26px;
+    flex: 0 1 auto;
+    padding: 0 5px;
+}
