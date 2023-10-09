@@ -4,7 +4,7 @@ import pandas as pd
 from pybaseball.lahman import *
 from collections import defaultdict
 from datetime import date, datetime
-from utils import create_client, get_career_range, get_player_bio, get_player_ids
+from utils import create_client, get_career_range, get_player_bio, get_player_ids, pair_ranks_with_data
 from pprint import pprint
 
 
@@ -29,28 +29,18 @@ STATCAST_VALID_DATES = {
 
 POSITIONS = ['P', 'C', 'DH', '1B', '2B', '3B', 'SS', 'LF', 'RF', 'CF', 'OF']
 
-
-def populate_player_collection():
-    client = create_client()
-    db = client.mlbDB
-    players = db.playerProfiles.find({}, projection={'_id': 0})
-    for player in players:
-        statcast = add_statcast(player)
-        if statcast: 
-            db.playerProfiles.update_one({'id': player['id']}, {{'$set': {'statcast': statcast}}, {'$currentDate': {'updated': date.today()}}})
-
-    
 def add_statcast(player):
     seasons = player['seasons']
     mlbam_id = player['mlbamID']
 
     statcast = []
-    for season in seasons:
+    for idx, season in enumerate(seasons):
         roles_by_year = season.keys()
         annual_data = {
             'year': season['year']
         }
-        if 'hitting' in roles_by_year:
+
+        if 'batting' in roles_by_year:
             query_values = get_batting_arsenal(season['year'], mlbam_id)
             if query_values:
                 annual_data['hitting'] = {'pitch_types': query_values}
@@ -58,6 +48,18 @@ def add_statcast(player):
             query_values = get_pitching_arsenal(season['year'], mlbam_id)
             if query_values:
                 annual_data['pitching'] = {'pitch_types': query_values}
+            if 'pitching' in player['ranking'][idx].keys():
+                if 'FF' in query_values.keys():
+                    
+                    player['ranking'][idx]['pitching']['fb_speed'] = {
+                        'rank': player['ranking'][idx]['pitching']['fb_speed']['value'],
+                        'value': query_values['FF']['AVG_SPEED']
+                    }
+                    player['ranking'][idx]['pitching']['fb_spin'] = {
+                        'rank': player['ranking'][idx]['pitching']['fb_spin']['value'],
+                        'value': query_values['FF']['AVG_SPIN']
+                    }
+        
         statcast.append(annual_data)
 
     return statcast
@@ -231,12 +233,9 @@ def get_pitch_movement_data(year, mlbam_id, pitch):
 
     return data[pitch]
 
-
 """
     Initial API call gives basic player info
     Use Pybaseball to get standard, advanced, batted-ball/pitch-level metrics
-
-
 """
 
 def compile_player_data():
@@ -246,11 +245,11 @@ def compile_player_data():
 
     p_bios = people().dropna(axis='columns', how='all')
 
-    # client = create_client()
-    # db = client.mlbDB
-
     szn_b_data = pb.batting_stats(years[0], years[1], qual=50).dropna(axis='columns', how='all').sort_values(by='IDfg')
     szn_p_data = pb.pitching_stats(years[0], years[1], qual=50).dropna(axis='columns', how='all').sort_values(by='IDfg')
+
+    bat_rankings = get_batter_ranks(years)
+    pitch_rankings = get_pitcher_ranks(years)
 
     tot_p_data = []
     prev = None
@@ -266,17 +265,56 @@ def compile_player_data():
             continue
         res = p_bio
         res['seasons'] = []
+        res['averages'] = {}
+        res['ranking'] = []
 
         player_bat_data = szn_b_data[szn_b_data['IDfg'] == player['IDfg']]
         player_pitch_data = szn_p_data[szn_p_data['IDfg'] == player['IDfg']]
 
+        
         for s_idx, szn in player_pitch_data.iterrows():
+            season_ranks = {
+                'year': szn['Season']
+            }
+            player_pitch_ranks =  pitch_rankings.loc[(pitch_rankings['mlbamID'] == p_bio['mlbamID']) & (pitch_rankings['year'] == szn['Season'])]
+            if not player_pitch_ranks.empty:
+                ranking_data = szn.loc[
+                    ['Name','Barrel%', 'HardHit%', 'EV', 'K%', 'BB%']
+                ].rename({
+                    'Name': 'player_name',
+                    'Barrel%': 'brl_pct',
+                    'HardHit%': 'hard_hit_pct',
+                    'K%': 'k_pct',
+                    'BB%': 'bb_pct'
+                })
+                ranking_data = ranking_data.to_frame().transpose()
+                merged = player_pitch_ranks.merge(
+                    ranking_data,
+                    on='player_name',
+                    suffixes=('_rank', None)
+                )
+
+                if not merged.empty:
+
+                    jsn = merged.loc[:, 'xBA_rank': ].to_json(orient='index')
+                    final = list(json.loads(jsn).values())[0]
+
+                    pitch_ranks = pair_ranks_with_data(final)
+                    season_ranks['pitching'] = pitch_ranks
+            
             szn_p_data.drop(s_idx, inplace=True)
             
             std_pitch = szn['Team': 'SO']
             std_pitch['WHIP'] = szn['WHIP']
             std_pitch = std_pitch.to_json(orient='index')
-            adv_pitch = szn['K/9': 'FIP'].to_json(orient='index')
+
+            adv_pitch = szn['K/9': 'FIP']
+            adv_pitch['brl_pct'] = szn['Barrel%']
+            adv_pitch['hard_hit_pct'] = szn['HardHit%']
+            adv_pitch = adv_pitch.to_json(orient='index')
+            
+            std_pitch = json.loads(std_pitch)
+            adv_pitch = json.loads(adv_pitch)
 
             szn_data = {
                 'year': szn['Season'],
@@ -290,22 +328,79 @@ def compile_player_data():
                 target_szn_bat_data = player_bat_data[player_bat_data['Season'] == szn['Season']]
                 if not target_szn_bat_data.empty:
 
+                    player_bat_ranks = bat_rankings.loc[(bat_rankings['mlbamID'] == p_bio['mlbamID']) & (bat_rankings['year'] == szn['Season'])]
+                    if not player_bat_ranks.empty:
+                        ranking_data = target_szn_bat_data.loc[:, 
+                            ['Name','Barrel%', 'HardHit%', 'EV', 'K%', 'BB%']
+                        ].rename(columns={
+                            'Name': 'player_name',
+                            'Barrel%': 'brl_pct',
+                            'HardHit%': 'hard_hit_pct',
+                            'K%': 'k_pct',
+                            'BB%': 'bb_pct'
+                        })
+                        merged = player_bat_ranks.merge(
+                            ranking_data,
+                            on='player_name',
+                            suffixes=('_rank', None)
+                        )
+                        jsn = player_bat_ranks.loc[:, 'xwOBA_rank': ].to_json(orient='index')
+                        ranking_data = list(json.loads(jsn).values())[0]
+                        
+                        bat_ranks = pair_ranks_with_data(ranking_data)
+                        season_ranks['batting'] = bat_ranks
+
+                    # get index of player batting data, drop
                     bat_idx = target_szn_bat_data.index
                     szn_b_data.drop(bat_idx, inplace=True)
 
-                    std_bat = target_szn_bat_data.loc[:, 'Team':'AVG'].to_json(orient='index')
+                    std_bat = target_szn_bat_data.loc[:, 'Team':'AVG']
+                    std_bat['OBP'] = target_szn_bat_data['OBP']
+                    std_bat['SLG'] = target_szn_bat_data['SLG']
+                    std_bat['OPS'] = target_szn_bat_data['OPS']
+                    
+                    adv_bat = target_szn_bat_data.loc[:, 'wOBA': 'Clutch']
+                    adv_bat['brl_pct'] = target_szn_bat_data['Barrel%']
+                    adv_bat['hard_hit_pct'] = target_szn_bat_data['HardHit%']
+                    adv_bat['exit_velo'] = target_szn_bat_data['EV']
+                    adv_bat['chase_pct'] = target_szn_bat_data['O-Swing%']
+                    
+                    std_bat = std_bat.to_json(orient='index')
                     bb = target_szn_bat_data.loc[:, 'GB': 'BUH%'].to_json(orient='index')
-                    adv_bat = target_szn_bat_data.loc[:, 'wOBA': 'Clutch'].to_json(orient='index')
+                    adv_bat = adv_bat.to_json(orient='index')
+
+                    std_bat = list(json.loads(std_bat).values())[0]
+                    bb = list(json.loads(bb).values())[0]
+                    adv_bat = list(json.loads(adv_bat).values())[0]
 
                     szn_data['batting'] = {
                         'standard': std_bat,
-                        'batted_ball': bb,
+                        'batted_ball': bb, 
                         'advanced': adv_bat
                     }
-
             res['seasons'].append(szn_data)
+            res['ranking'].append(season_ranks)
+        if not player_pitch_data.empty:
+            agg = {}
+            for k in player_pitch_data.loc[:, 'W':'BABIP'].keys():
+                # sum up np.int64 dtype metrics
+                if player_pitch_data[k].dtypes == '<i8':
+                    agg[k] = player_pitch_data[k].sum().item()
+                # find average of np.float64 dtype metrics
+                elif player_pitch_data[k].dtypes == '<f8':
+                    agg[k] = round(player_pitch_data[k].mean(), 3).item()
+            res['averages']['pitching'] = agg
+        if not player_bat_data.empty:
+            agg = {}
+            for k in player_bat_data.loc[:, 'G': 'OPS'].keys():
+                if player_bat_data[k].dtypes == '<i8':
+                    agg[k] = player_bat_data[k].sum().item()
+                # find average of np.float64 dtype metrics
+                elif player_bat_data[k].dtypes == '<f8':
+                    agg[k] = round(player_bat_data[k].mean(), 3).item()
+            res['averages']['batting'] = agg
         tot_p_data.append(res)
-
+        
     prev = None
     # Gather remainder of players who only hit
     for p_idx, player in szn_b_data.iterrows():
@@ -321,14 +416,60 @@ def compile_player_data():
 
         res = p_bio
         res['seasons'] = []
+        res['averages'] = {}
+        res['ranking'] = []
 
-        player_hit_data = szn_b_data[szn_b_data['IDfg'] == player['IDfg']]
+        player_bat_data = szn_b_data[szn_b_data['IDfg'] == player['IDfg']]
 
-        for s_idx, szn in player_hit_data.iterrows():
+        for s_idx, szn in player_bat_data.iterrows():
+            player_bat_ranks = bat_rankings.loc[(bat_rankings['mlbamID'] == p_bio['mlbamID']) & (bat_rankings['year'] == szn['Season'])]
+            if not player_bat_ranks.empty:
 
-            std_bat = szn['Team':'AVG'].to_json(orient='index')
+                ranking_data = szn.loc[
+                    ['Name','Barrel%', 'HardHit%', 'EV', 'K%', 'BB%']
+                ].rename({
+                    'Name': 'player_name',
+                    'Barrel%': 'brl_pct',
+                    'HardHit%': 'hard_hit_pct',
+                    'K%': 'k_pct',
+                    'BB%': 'bb_pct'
+                })
+                ranking_data = ranking_data.to_frame().transpose()
+                merged = player_bat_ranks.merge(
+                    ranking_data,
+                    on='player_name',
+                    suffixes=('_rank', None)
+                )
+
+                if not merged.empty:
+                    jsn = player_bat_ranks.loc[:, 'xwOBA_rank': ].to_json(orient='index')
+                    ranking_data = list(json.loads(jsn).values())[0]
+                            
+                    bat_ranks = pair_ranks_with_data(ranking_data)
+                    season_ranks = {
+                        'year': szn['Season'],
+                        'batting': bat_ranks
+                    }
+                    res['ranking'].append(season_ranks)
+
+            std_bat = szn['Team':'AVG']
+            std_bat['OBP'] = szn['OBP']
+            std_bat['SLG'] = szn['SLG']
+            std_bat['OPS'] = szn['OPS']
+
+            adv_bat = szn['wOBA': 'Clutch']
+            adv_bat['brl_pct'] = szn['Barrel%']
+            adv_bat['hard_hit_pct'] = szn['HardHit%']
+            adv_bat['exit_velo'] = szn['EV']
+            adv_bat['chase_pct'] = szn['O-Swing%']
+            
+            std_bat = std_bat.to_json(orient='index')
             bb = szn['GB': 'BUH%'].to_json(orient='index')
-            adv_bat = szn['wOBA': 'Clutch'].to_json(orient='index')
+            adv_bat = adv_bat.to_json(orient='index')
+
+            std_bat = json.loads(std_bat)
+            bb = json.loads(bb)
+            adv_bat = json.loads(adv_bat)
 
             szn_data = {
                 'year': szn['Season'],
@@ -339,10 +480,121 @@ def compile_player_data():
                 }
             }
             res['seasons'].append(szn_data)
+        agg = {}
+        for k in player_bat_data.loc[:, 'G': 'OPS'].keys():
+            if player_bat_data[k].dtypes == '<i8':
+                agg[k] = player_bat_data[k].sum().item()
+            # find average of np.float64 dtype metrics
+            elif player_bat_data[k].dtypes == '<f8':
+                agg[k] = round(player_bat_data[k].mean(), 3).item()
+        res['averages']['batting'] = agg
+        
         tot_p_data.append(res)
 
     return tot_p_data
 
+"""
+    Grab Batter Percentile Rankings for set range
     
-# def get_season_batters(year):
-#     data = pb.batting_stats(year, qual=50).dropna(axis='columns', how='all')
+    Returns: 
+        DataFrame
+"""
+
+def get_batter_ranks(years):
+
+    res = pd.DataFrame()
+    for year in range(years[0], years[1]+1):
+        df = pb.statcast_batter_percentile_ranks(year).dropna(
+            axis='rows',
+            how='all'
+        ).drop(columns=[
+            'xiso',
+            'xobp',
+            'whiff_percent',
+            'oaa',
+            'brl',
+        ])
+        qual_ranks = df[~df.isnull().any(axis=1)].rename(columns={
+            'player_id': 'mlbamID',
+            'xwoba': 'xwOBA',
+            'xba': 'xBA',
+            'xslg': 'xSLG',
+            'exit_velocity': 'EV',
+            'brl_percent': 'brl_pct',
+            'k_percent': 'k_pct',
+            'hard_hit_percent': 'hard_hit_pct',
+            'bb_percent': 'bb_pct',
+        })
+        qual_bats = pb.statcast_batter_expected_stats(year).rename(columns={
+            'player_id': 'mlbamID',
+            'est_ba': 'xBA',
+            'est_slg': 'xSLG',
+            'est_woba': 'xwOBA'
+        })
+        qual_bats = qual_bats.loc[:, ['mlbamID', 'xBA', 'xSLG', 'xwOBA']]
+        spd = pb.statcast_sprint_speed(year).rename(columns={'player_id': 'mlbamID'}).loc[:, ['mlbamID', 'sprint_speed']]
+        merged = qual_ranks.merge(
+            qual_bats,
+            left_on='mlbamID',
+            right_on='mlbamID',
+            suffixes=('_rank', None)
+        ).merge(
+            spd,
+            left_on='mlbamID',
+            right_on='mlbamID',
+            suffixes=('_rank', None)
+        )
+        res = pd.concat([res, merged])
+    return res
+
+"""
+    Grab Pitcher Percentile Rankings for set range
+    
+    Returns: 
+        DataFrame
+"""
+
+def get_pitcher_ranks(years):
+    res = pd.DataFrame()
+    for year in range(years[0], years[1]+1):
+        df = pb.statcast_pitcher_percentile_ranks(year).dropna(
+            axis='rows',
+            how='all'
+        ).drop(columns=[
+            'xwoba',
+            'xiso',
+            'xobp',
+            'brl',
+            'curve_spin',
+            'whiff_percent',
+            'xslg'
+        ])
+        qual_ranks = df[~df.isnull().any(axis=1)].rename(
+            columns={
+                'player_id': 'mlbamID',
+                'xba': 'xBA',
+                'brl_percent': 'brl_pct',
+                'exit_velocity': 'EV',
+                'hard_hit_percent': 'hard_hit_pct',
+                'k_percent': 'k_pct',
+                'bb_percent': 'bb_pct',
+                'xera': 'xERA',
+                'fb_velocity': 'fb_speed',
+            }
+        )
+        qual_pitch = pb.statcast_pitcher_expected_stats(2021).rename(columns={
+            'player_id': 'mlbamID',
+            'est_ba': 'xBA',
+            'xera': 'xERA'
+        })
+        qual_pitches = qual_pitch.loc[:, ['mlbamID', 'xBA', 'xERA']]
+        merged = qual_ranks.merge(
+            qual_pitches,
+            left_on='mlbamID',
+            right_on='mlbamID',
+            suffixes=('_rank', None)
+        )
+        res = pd.concat([res, merged])
+    return res
+
+compile_player_data()

@@ -22,55 +22,46 @@ export default function PlayerHeader({ children }) {
 
     const data = children
 
-    const bday = dateReformat(data.birthdate)
+    const bday = dateReformat(data.birthDate)
     const debut = dateReformat(data.pro_debut)
 
-    const height = convertHeight(data.height)['imperial']
-
-    // if (data.position == 'IF' || data.position == 'OF') {
-    //     var position = positions[data.primary_position];
-    // } else {
-    //     var position = positions[data.primary_position] + ' and ' + positions[data.position];
-    // }
+    const height = convertHeight(data.ht)['imperial']
 
     if (data.position == 'IF' || data.position == 'OF') {
         var position = data.position;
     } else {
         var position = data.primary_position + ' / ' + data.position;
     }
-    const age = getAge(data.birthdate)
+    const age = getAge(data.birthDate)
     return (
         /* <---    Header Content split into Grid */
-        /*
-            <div>
-                <div>
-                    <div>
-                    </div>
-                </div>
+        
+        <div className={styles.playerCardBox}>
+            <div className={styles.playerNameBox}>
+                {data.nameFull}
             </div>
-        */
-            <div className={styles.playerCardBox}>
-                <div className={styles.playerNameBox}>
-                    <h1 className={styles.playerName}>{data.preferred_name} {data.last_name}</h1>
-                    <div>
-                        <Link href={`teams/${data.team.id}`} className="hover:text-mlb-red">{data.team.market} {data.team.name}</Link>
-                    </div>
+            <div className={styles.playerInfoContainer}>
+                <div className={styles.playerInfoBox}>
+                    {position}
+                </div>
+                <div className={styles.playerInfoBox}>
+                    Bats: {data.bats} / Throws: {data.throws}
+                </div>
+                <div className={styles.playerInfoBox}>
+                    {height} / {data.wt} lbs
                 </div>
                 <div className={styles.playerInfoBox}>
                     Age: {age}
                 </div>
+            </div>
+            <div className={styles.playerInfoContainer}>
                 <div className={styles.playerInfoBox}>
-                    {height} / {data.weight}
+                    Born: {data.birthCity}, {data.birthState}, {data.birthCountry} 
                 </div>
                 <div className={styles.playerInfoBox}>
-                    Bats: {data.bat_hand} / Throws: {data.throw_hand}
-                </div>
-                <div className={styles.playerInfoBox}>
-                    {position}
-                </div>
-                <div className={styles.playerNumberBox}>
-                    #{data.jersey_number}
+                    {data.high_school}
                 </div>
             </div>
+        </div>
     )
 }

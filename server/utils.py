@@ -50,7 +50,6 @@ def reformat_seasons():
         print(f'{player["preferred_name"]} {player["last_name"]} updated.')
 
 
-
 def combine_b_day(row):
     year = int(row['birthYear'])
     month = int(row['birthMonth'])
@@ -123,3 +122,61 @@ def get_player_bio(player_bios, id_fg, p_name):
 """
 def get_player_ids(l_name, f_name):
     return pb.playerid_lookup(l_name, f_name)
+
+
+def get_annual_batting_ranks(year, season, mlbam_id):
+    bat_pct_ranks = pb.statcast_batter_percentile_ranks(season['year']).dropna(axis='columns', how='all')
+    sprint_spds = pb.statcast_sprint_speed(season['year'], 50)
+
+    qual_sprint = sprint_spds[~sprint_spds.isnull().any(axis=1)]
+    qual_bat = bat_pct_ranks[~bat_pct_ranks.isnull().any(axis=1)]
+
+    bat_rank = qual_bat[qual_bat['player_id'] == mlbam_id].drop(
+                    columns=[
+                        'oaa',
+                        'xiso',
+                        'xobp',
+                        'whiff_percent'
+                    ]
+                ).rename(
+                    columns={
+                        'player_id': 'mlbamID',
+                        'xwoba': 'xwOBA',
+                        'xba': 'xBA',
+                        'xslg': 'xSLG',
+                        'xiso': 'xISO',
+                        'brl_percent': 'brl_pct',
+                        'exit_velocity': 'exit_velo',
+                    }
+                )
+
+"""
+    Arguments: 
+        data: string - string representing dict of rankings and values
+
+    Returns: 
+        defaultdict: {
+            metric_name: {
+                'rank',
+                'value'
+            }
+        }
+"""
+def pair_ranks_with_data(data):
+    season_ranks = defaultdict(dict)
+    for k, v in data.items():
+        k_splits = k.partition('_rank')
+        metric, metric_type = k_splits[0], k_splits[1]
+        metric_type = 'rank' if metric_type == '_rank' else 'value'
+
+        season_ranks[metric][metric_type] = v
+    return season_ranks
+
+def get_annual_pct_rankings(year, season, mlbam_id):
+
+    pitch_pct_ranks = pb.statcast_pitcher_percentile_ranks(season['year']).dropna(axis='columns', how='all')
+
+    qual_pitch = pitch_pct_ranks[~pitch_pct_ranks.isnull().any(axis=1)]
+    sprint_spds = pb.statcast_sprint_speed(season['year'], 50)
+
+    qual_sprint = sprint_spds[~sprint_spds.isnull().any(axis=1)]

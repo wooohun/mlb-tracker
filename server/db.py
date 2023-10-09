@@ -9,7 +9,7 @@ from bson.objectid import ObjectId
 from collections import defaultdict
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
-from scraper import add_statcast, compile_player_data
+from scraper import add_statcast, compile_player_data, get_batter_ranks
 
 CONFIG = dotenv.dotenv_values('../mlb-tracker/.env.local')
 CUR_YEAR = datetime.date.year
@@ -148,10 +148,14 @@ def insert_player_profiles():
     
     players = compile_player_data()
     for player in players:
+
+        if 'pitching' not in player['seasons'][0].keys():
+            continue
         player['statcast'] = add_statcast(player)
 
         updates = []
-        for field in player.keys():   
+        
+        for field in player.keys():  
             update = {
                 '$set': {
                     field: player[field]
@@ -164,7 +168,7 @@ def insert_player_profiles():
             }
         })
         inserted_player = db.playerProfiles.update_one(
-            {'mlbamID': f'{player["mlbamID"]}'}, 
+            {'mlbamID': player["mlbamID"]}, 
             updates,
         )
         print(f'Updated {inserted_player.modified_count} document(s)')
@@ -181,7 +185,7 @@ def get_api_glossary():
     client = create_client()
     db = client.mlbDB
     db.glossary.insert_one(res)
-
+    
 """
     Used to Find 40-man roster for each team per season
 
@@ -230,6 +234,7 @@ def update_embedded_players_to_reference(year):
                 {'$set': {f'players.{idx}': {'_id': _id, 'id': id}}}
             )
             print(f'Updated {team["season"]["year"]} {team["abbr"]}: {idx}')
+
 
 insert_player_profiles()
 
