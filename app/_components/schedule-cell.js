@@ -1,4 +1,3 @@
-import { getGameSummary } from "../api/routes"
 import MatchupCell from "./matchup-cell"
 
 export default async function ScheduleCell({children}) {

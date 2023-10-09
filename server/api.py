@@ -34,4 +34,3 @@ def get_league_schedule(year, season_type):
 def do_insert(doc):
     client = create_client()
     db = client.test
-
