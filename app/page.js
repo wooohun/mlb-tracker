@@ -18,7 +18,7 @@ export default async function Home() {
     // const data = await getDailyBoxScores();
     // const dailySchedule = await getDailySchedule();
     return (
-        <div className="flex h-screen flex-row items-center justify-around p-24">
+        <div className="flex h-full flex-row items-center justify-around p-24">
             <div className="basis-2/3">
                 {/* <DailySchedule>{dailySchedule}</DailySchedule> */}
             </div>
@@ -26,8 +26,7 @@ export default async function Home() {
                 <Standings>{standingsData}</Standings>
             </div>
             <div>
-                <Link href={`/players/80de60c9-74e3-4a50-b128-b3dc7456a254`}>Ohtani</Link>
-
+                <Link href={`/players/d3351c6e-12cf-4ab5-b651-ad23d49c4245`}>Kershaw</Link>
             </div>
         </div>
   )

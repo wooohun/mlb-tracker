@@ -8,7 +8,7 @@
     color: black;
 }
 .playerNameBox {
-    text-align: left;
+    text-align: center;
     flex: 1 0 auto;
     padding: 4px;
     font-size: 40px;
@@ -25,14 +25,14 @@
 .playerInfoContainer {
     display: flex;
     flex-wrap: wrap;
-    justify-content: space-evenly;
+    justify-content: center;
     align-items: center;
     padding: 4px;
     font-size: 24px;
 }
 .playerInfoBox {
     text-align: center;
-    font-size: 16px;
+    font-size: 14px;
     border-right: 1px solid;
     flex: 0 1 auto;
     padding: 0 5px;
@@ -59,6 +59,7 @@
 }
 .playerSummaryTableHeader{
     border-collapse: collapse;
+    font-size: 10px;
 }
 .playerSummaryTableHeaderBox {
     border-top-width: 1px;
@@ -66,9 +67,24 @@
     border-color: black;
     padding: 4px;
 }
-.playerSummaryTableRow {
+.playerSummaryTableRow:last-of-type {
+    border-bottom-width: 1px;
+    border-color: black;
+}
+.playerSummaryOverallStats {
+    background-color: gray;
 }
 .playerSummaryTableBox {
     font-size: 10px;
     text-align: center;
+}
+.playerProfileModule {
+    height: 100%;
+    margin-left: 4px;
+    border-width: 2px;
+    border-color: black;
+}
+.playerProfileModule:last-of-type {
+    grid-column: span 2 / span 2;
+    margin-right: 2px;
 }

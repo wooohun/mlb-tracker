@@ -3,7 +3,6 @@
 import LeagueStandings from './league/page';
 import React, { useState, useEffect } from 'react'
 
-
 export default function Standings({ children }) {
     const leagues = children.leagues;
 

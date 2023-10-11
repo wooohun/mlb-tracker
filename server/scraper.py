@@ -4,7 +4,7 @@ import pandas as pd
 from pybaseball.lahman import *
 from collections import defaultdict
 from datetime import date, datetime
-from utils import create_client, get_career_range, get_player_bio, get_player_ids, pair_ranks_with_data
+from utils import  get_career_range, get_player_bio, pair_ranks_with_data, min_max_normalize
 from pprint import pprint
 
 
@@ -24,7 +24,7 @@ STATCAST_VALID_DATES = {
 	2020: (date(2020, 7, 23), date(2020, 10, 27)),
     2021: (date(2021, 4, 1), date(2021, 10, 3)),
     2022: (date(2022, 4, 7), date(2022, 10, 2)),
-    2023: (date(2023, 3, 30), date.today())
+    2023: (date(2023, 3, 30), date(2023, 10, 1))
 }
 
 POSITIONS = ['P', 'C', 'DH', '1B', '2B', '3B', 'SS', 'LF', 'RF', 'CF', 'OF']
@@ -43,7 +43,7 @@ def add_statcast(player):
         if 'batting' in roles_by_year:
             query_values = get_batting_arsenal(season['year'], mlbam_id)
             if query_values:
-                annual_data['hitting'] = {'pitch_types': query_values}
+                annual_data['batting'] = {'pitch_types': query_values}
         if 'pitching' in roles_by_year:
             query_values = get_pitching_arsenal(season['year'], mlbam_id)
             if query_values:
@@ -61,7 +61,6 @@ def add_statcast(player):
                     }
         
         statcast.append(annual_data)
-
     return statcast
 
 
@@ -73,13 +72,20 @@ def get_batting_arsenal(year, mlbam_id):
     sbpa = sbpa.drop(
         columns=[
             'last_name, first_name',
+            'team_name_alt',
+            'pitch_name'
         ]
     ).rename(
         columns={
-            'player_id': 'mlbam_id', 
+            'player_id': 'mlbam_id',
+            'pitches': 'total', 
+            'pitch_usage': 'usage',
             'whiff_percent': 'whiff_pct', 
             'k_percent': 'k_pct',
-            'hard_hit_percent': 'hard_hit_pct'
+            'hard_hit_percent': 'hard_hit_pct',
+            'est_ba': 'xBA',
+            'est_slg': 'xSLG',
+            'est_woba': 'xwOBA'
         }
     )
 
@@ -89,9 +95,18 @@ def get_batting_arsenal(year, mlbam_id):
     player_query = player_query.drop(columns=['mlbam_id'])
     query_json = player_query.to_json(orient='index')
     query_values = json.loads(query_json).items()
+    
+    # add normalized data values
+    normalized = min_max_normalize(sbpa.loc[:, 'run_value_per_100': ])
+    normalized = sbpa[['mlbam_id', 'pitch_type']].join(normalized, how='outer')
+    norm_query = normalized[normalized['mlbam_id'] == mlbam_id].drop(columns=['mlbam_id'])
+    norm_json = norm_query.set_index('pitch_type').to_json(orient='index')
+    norm_values = json.loads(norm_json)
+
     res = {}
     for (key, val) in query_values:
         res[key] = val
+        res[key].update({'normalized': norm_values[key]})
     return res
 
 # get metrics for pitches by year, pitcher
@@ -114,7 +129,7 @@ def get_pitching_arsenal(year, mlbam_id):
 
     # grab data
     pitch_data = get_arsenal_data(year, mlbam_id)
-    stats_values = get_pitching_arsenal_stats(year, mlbam_id)
+    stats_values, normalized = get_pitching_arsenal_stats(year, mlbam_id)
 
     # Compile data into dict, key: pitch type abbr, value: metrics
     for k, v in pitch_data.items():
@@ -134,16 +149,19 @@ def get_pitching_arsenal(year, mlbam_id):
             res[back].update({'usage_pct': v})
 
     for (p_type, p_data) in stats_values:
+        res[p_type].update({'normalized': normalized[p_type]})
         for k, v in p_data.items():
-            if k != 'player_id':
-                p_key = p_type
-                res[p_key].update({k: v})
+            res[p_type].update({k: v})
 
+    to_pop = []
     for key in res.keys():
         data = get_pitch_movement_data(year, mlbam_id, key)
         if data: 
             res[key].update({'movement': data})
-
+        else:
+            to_pop.append(key)
+    for key in to_pop:
+        res.pop(key)
     return res
 
 def get_arsenal_data(year, mlbam_id):
@@ -161,7 +179,6 @@ def get_arsenal_data(year, mlbam_id):
     sppa_final = sppa_spin.rename(columns={'pitcher': 'mlbam_id'})
 
     # query gathered dataframes for player specific data
-    # player_query = sppa_final.query(f'mlbam_id == {mlbam_id}')
     player_query = sppa_final[sppa_final['mlbam_id'] == mlbam_id]
 
     # verify that data exists
@@ -193,13 +210,38 @@ def get_pitching_arsenal_stats(year, mlbam_id):
         'pitch_usage': 'usage',
         'whiff_percent': 'whiff_pct',
         'k_percent': 'k_pct',
-        'hard_hit_percent': 'hard_hit_pct'
+        'hard_hit_percent': 'hard_hit_pct',
+        'est_ba': 'xBA',
+        'est_slg': 'xSLG',
+        'est_woba': 'xwOBA'
     })
+
+    norm_stats = sppa_stats.drop(columns=[
+            'last_name, first_name', 
+            'team_name_alt', 'pitch_name', 
+        ]).rename(columns={
+        'pitches': 'total',
+        'pitch_usage': 'usage',
+        'whiff_percent': 'whiff_pct',
+        'k_percent': 'k_pct',
+        'hard_hit_percent': 'hard_hit_pct',
+        'est_ba': 'xBA',
+        'est_slg': 'xSLG',
+        'est_woba': 'xwOBA'
+    })
+
+    normalized = min_max_normalize(norm_stats.loc[:, 'run_value_per_100': ])
+    normalized = sppa_stats[['player_id', 'pitch_type']].join(normalized, how='outer')
+    norm_query = normalized[normalized['player_id'] == mlbam_id].drop(columns=['player_id'])
+    norm_stats = norm_query.set_index('pitch_type')
+    norm_json = norm_stats.to_json(orient='index')
+    norm_values = json.loads(norm_json)
+
     pitch_stats = stats_query.set_index('pitch_type')
     pitch_stats_json = pitch_stats.to_json(orient='index')
     stats_values = list(json.loads(pitch_stats_json).items())
 
-    return stats_values
+    return stats_values, norm_values
 
 def get_pitch_movement_data(year, mlbam_id, pitch):
     movement_data = pb.statcast_pitcher_pitch_movement(

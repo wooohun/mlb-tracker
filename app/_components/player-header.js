@@ -22,9 +22,6 @@ export default function PlayerHeader({ children }) {
 
     const data = children
 
-    const bday = dateReformat(data.birthDate)
-    const debut = dateReformat(data.pro_debut)
-
     const height = convertHeight(data.ht)['imperial']
 
     if (data.position == 'IF' || data.position == 'OF') {

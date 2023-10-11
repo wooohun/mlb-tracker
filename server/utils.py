@@ -172,11 +172,18 @@ def pair_ranks_with_data(data):
         season_ranks[metric][metric_type] = v
     return season_ranks
 
-def get_annual_pct_rankings(year, season, mlbam_id):
 
-    pitch_pct_ranks = pb.statcast_pitcher_percentile_ranks(season['year']).dropna(axis='columns', how='all')
+"""
+    Min-Max Normalization
 
-    qual_pitch = pitch_pct_ranks[~pitch_pct_ranks.isnull().any(axis=1)]
-    sprint_spds = pb.statcast_sprint_speed(season['year'], 50)
+    Arguments:
+        DataFrame
 
-    qual_sprint = sprint_spds[~sprint_spds.isnull().any(axis=1)]
+    Returns: DataFrame
+
+"""
+
+def min_max_normalize(df):
+  return round((df-df.min())/(df.max()-df.min()), 3)
+
+

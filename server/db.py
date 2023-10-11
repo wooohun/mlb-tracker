@@ -149,7 +149,7 @@ def insert_player_profiles():
     players = compile_player_data()
     for player in players:
 
-        if 'pitching' not in player['seasons'][0].keys():
+        if 'batting' not in player['seasons'][0].keys():
             continue
         player['statcast'] = add_statcast(player)
 
@@ -235,6 +235,4 @@ def update_embedded_players_to_reference(year):
             )
             print(f'Updated {team["season"]["year"]} {team["abbr"]}: {idx}')
 
-
 insert_player_profiles()
-

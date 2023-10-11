@@ -3,7 +3,7 @@ export default function StandingsCell(props) {
     return (
         <div>
             {data.map((team) => (
-                <div key={team.id} className="grid grid-cols-6 p-4">
+                <div key={team.id} className="grid grid-flow-row auto-rows-fr grid-cols-6 p-4 border-b-2 border-black last:border-b-0">
                     <div className="col-span-3">
                         <p>{team.market} {team.name}</p>
                     </div>
