@@ -1,69 +1,45 @@
-'use-client'
+import React from 'react';
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
+import { Pie } from 'react-chartjs-2';
+import * as ENUMS from '../enums'
+import styles from './visuals.module.css'
 
-import { Chart } from "chart.js/auto"
-import { useEffect, useRef } from "react"
+ChartJS.register(ArcElement, Tooltip, Legend);
 
-function updateData(chart, label, newData) {
-    removeData(chart);
-    chart.data.labels.push(label);
-    chart.data.datasets.forEach((dataset) => {
-        dataset.data.push(newData);
-    })
-    chart.update();
-}
+export default function PieGraph( {displayType, statcast} ) {
+    const data = Object.entries(statcast[displayType]['pitch_types']) 
 
-function removeData(chart){
-    chart.data.labels.pop();
-    chart.data.datasets.forEach((dataset) => {
-        dataset.data.pop();
-    })
-}
-
-export default function PieChart( {children} ) {
-    const data = children
-
-    const pitchLabels = []
-    const pitchData = []
+    const dataset = []
+    const labels = []
     const bgColor = []
-    for (let pitch in data) {
-        pitchLabels.push(pitch.type)
-        pitchData.push(pitch.release_speed.count)
-        const randomColor = Math.floor(Math.random()*16777215).toString(16)
-        bgColor.push('#' + randomColor)
+    const borderColor = []
+
+    for (const [p_type, p_vals] of data) {
+        dataset.push(p_vals['total'])
+        labels.push(ENUMS.pitchTypes[p_type])
+        bgColor.push(ENUMS.graphColors[p_type][1])
+        borderColor.push(ENUMS.graphColors[p_type][0])
     }
 
-    const config = {
-        label: pitchLabels,
-        datasets: [{
-            data: pitchData,
-            backgroundColor: bgColor,
-            hoverOffset: 4
-        }],
+    const graphData = [{
+        label: '# of Pitches',
+        data: dataset,
+        backgroundColor: bgColor,
+        borderColor: borderColor,
         borderWidth: 1
+    }]
+
+    const finalData = {
+        labels: labels,
+        datasets: graphData
     }
-    const canvas = useRef()
-
-    useEffect(() => {
-        const ctx = canvas.current;
-
-        let chartStatus = Chart.getChart('myChart')
-        if (chartStatus != undefined) {
-            chartStatus.destroy();
-        }
-
-        const chart = new Chart(ctx, {
-            type: 'pie',
-            data: config,
-            options: {
-                responsive: true,
-
-            }
-        })
-    })
-
     return (
-        <div className="pieChartContainer">
-            <canvas ref={canvas}></canvas>
+        <div className={styles.graph}>
+            <Pie
+                datasetIdKey='id'
+                data={finalData}
+                updateMode='resize'
+            />
         </div>
     )
 }

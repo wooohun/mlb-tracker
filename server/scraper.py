@@ -4,7 +4,7 @@ import pandas as pd
 from pybaseball.lahman import *
 from collections import defaultdict
 from datetime import date, datetime
-from utils import  get_career_range, get_player_bio, pair_ranks_with_data, min_max_normalize
+from utils import get_player_bio, pair_ranks_with_data, min_max_normalize, avg_sz
 from pprint import pprint
 
 
@@ -639,4 +639,103 @@ def get_pitcher_ranks(years):
         res = pd.concat([res, merged])
     return res
 
-compile_player_data()
+def get_pitcher_pitches(season, mlbamid):
+    start, end = STATCAST_VALID_DATES[season]
+    start = start.strftime('%Y-%m-%d')
+    end = end.strftime('%Y-%m-%d')
+
+    data = pb.statcast_pitcher(start, end, mlbamid)
+    if data.empty:
+        return None
+    data = data.sort_values(by='pitch_type')
+    data = data.loc[:, ['pitch_type', 'zone', 'plate_x', 'plate_z', 'sz_top', 'sz_bot']]
+
+    width = data.sort_values(by='plate_x')
+    width = width.loc[width['zone'] < 10]
+
+    szt = round(data['sz_top'].mean(), 2)
+    szb = round(data['sz_bot'].mean(), 2)
+    szl = round(width['plate_x'].min(), 2)
+    szr = round(width['plate_x'].max(), 2)
+    
+    data.drop(columns=['zone'], inplace=True)
+    sum_of_differences =  data.apply(lambda row: row['sz_top'] - row['sz_bot'], axis=1).sum()
+    avg_sz_height = round(sum_of_differences/ len(data), 2).item()
+
+    data['plate_z'] = data.apply(avg_sz, args=(avg_sz_height,), axis=1)
+
+    data.drop(columns=['sz_top', 'sz_bot'], inplace=True)
+    data = data.loc[data['pitch_type'].notna()]
+
+    jsn = data.to_json(orient='records')
+    pitches = json.loads(jsn)
+
+    p_types = defaultdict(list)
+    for pitch in pitches:
+        coords = {
+            'x': pitch['plate_x'],
+            'y': pitch['plate_z']
+        }
+        p_types[pitch['pitch_type']].append(coords)
+    
+    res = {
+        'sz_dim': {
+            'top': szt,
+            'bot': szb,
+            'left': szl,
+            'right': szr
+        },
+        'pitch_types': p_types
+    }
+    return res
+
+def get_batter_pitches(season, mlbamid):
+    start, end = STATCAST_VALID_DATES[season]
+    start = start.strftime('%Y-%m-%d')
+    end = end.strftime('%Y-%m-%d')
+
+    data = pb.statcast_batter(start, end, mlbamid)
+    if data.empty:
+        return None
+    
+    data = data.sort_values(by='pitch_type')
+    data = data.loc[:, ['pitch_type', 'zone', 'plate_x', 'plate_z', 'sz_top', 'sz_bot']]
+    
+    width = data.sort_values(by='plate_x')
+    width = width.loc[width['zone'] < 10]
+
+    szt = round(data['sz_top'].mean(), 2)
+    szb = round(data['sz_bot'].mean(), 2)
+    szl = round(width['plate_x'].min(), 2)
+    szr = round(width['plate_x'].max(), 2)
+
+    data.drop(columns=['zone'], inplace=True)
+    sum_of_differences =  data.apply(lambda row: row['sz_top'] - row['sz_bot'], axis=1).sum()
+    avg_sz_height = round(sum_of_differences/ len(data), 2).item()
+
+    data['plate_z'] = data.apply(avg_sz, args=(avg_sz_height, ), axis=1)
+
+    data.drop(columns=['sz_top', 'sz_bot'], inplace=True)
+    data = data.loc[data['pitch_type'].notna()]
+
+    jsn = data.to_json(orient='records')
+    pitches = json.loads(jsn)
+
+    p_types = defaultdict(list)
+    for pitch in pitches:
+        coords = {
+            'x': pitch['plate_x'],
+            'y': pitch['plate_z']
+        }
+        p_types[pitch['pitch_type']].append(coords)
+    
+    res = {
+        'sz_dim': {
+            'top': szt,
+            'bot': szb,
+            'left': szl,
+            'right': szr
+        },
+        'pitch_types': p_types
+    }
+    return res

@@ -1,0 +1,55 @@
+.visualsModule{
+    display: flex;
+    flex-direction: column;
+}
+.visualsModuleHeader {
+    width: 100%;
+    justify-content: center;
+    display: flex;
+    margin: 4px 0px;
+}
+.dropdownContainer {
+    padding: 2px;
+}
+.dropdownButton {
+    padding: 2px;
+    text-decoration-line: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 2px;
+}
+.dropdownItem {
+    text-align: center;
+}
+.dropdownItem:hover {
+    color: red;
+}
+.dropdownItemContent {
+    font-size: 14px;
+    padding: 3px;
+}
+.dropdownItemContent:hover {
+    text-decoration-color: red;
+    text-decoration-line: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 1px;
+}
+.visualsContainer {
+    display: flex;
+    flex-wrap: wrap;
+    flex-direction: row;
+    padding: 4px;
+}
+.visualsContainer:nth-child(odd) {
+    border-left: 1px black;
+}
+    
+.graphContainer {
+    flex: 0 1 auto;
+    height: 50%;
+    width: 50%;
+    padding: 4px;
+}
+.graph {
+    border-bottom: 1px solid black;
+    padding: 2px;
+}

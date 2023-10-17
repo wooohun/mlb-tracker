@@ -186,4 +186,17 @@ def pair_ranks_with_data(data):
 def min_max_normalize(df):
   return round((df-df.min())/(df.max()-df.min()), 3)
 
+"""
+    Helper Function for Strike Zone Normalization
+
+    Arguments:
+        DataFrame Row
+
+    Returns:
+        Float
+"""
+
+def avg_sz(row, avg_sz_height): 
+    delta = (row['sz_top'] - row['sz_bot']) / avg_sz_height
+    return round(row['plate_z'] * (2-delta), 2)
 

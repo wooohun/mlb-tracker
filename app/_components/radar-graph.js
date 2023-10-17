@@ -1,4 +1,3 @@
-'use client'
 import {
     Chart,
     RadialLinearScale,
@@ -10,6 +9,7 @@ import {
   } from 'chart.js';
 import { Radar } from "react-chartjs-2";
 import * as ENUMS from '../enums';
+import styles from './visuals.module.css'
 
 Chart.register(
     RadialLinearScale,
@@ -20,16 +20,17 @@ Chart.register(
     Legend
 );
 
-export default function PitchRadarGraph({displayType, statcast}) {
-    const data = statcast
-      
+export default function RadarGraph({displayType, statcast}) {
+
+    const metric_labels = displayType == 'pitching' ? ENUMS.p_metric_labels : ENUMS.b_metric_labels
+
     const datasets = []
-    for (const [p_type, p_data] of Object.entries(data[displayType]['pitch_types'])) {
+    for (const [p_type, p_data] of Object.entries(statcast[displayType]['pitch_types'])) {
         var metric_data = []
         if (Object.keys(p_data).includes('normalized')) {
             for (const [metric, val] of Object.entries(p_data['normalized'])){
-                if (Object.keys(ENUMS.pitch_labels).includes(metric)){
-                    metric_data.push([ENUMS.pitch_labels[metric], val])
+                if (Object.keys(metric_labels).includes(metric)){
+                    metric_data.push([metric_labels[metric], {'normalized': val, 'actual': p_data[metric]}])
                 }
             }
         }
@@ -37,13 +38,30 @@ export default function PitchRadarGraph({displayType, statcast}) {
     }
 
     const graphConfig = {
+        plugins: {
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        let idx = context.dataIndex
+                        let label = context.dataset.label || '';
+                        if (label) {
+                            label += ': '
+                        }
+                        if (idx !== '') {
+                            label += context.dataset.data[idx]['actual']
+                        }
+                        return label
+                    }
+                }
+            }
+        },
+        parsing: {
+            key: 'normalized'
+        },
         scales: {
             r: {
                 type: 'radialLinear',
                 axis: 'r',
-                angleLines: {
-                    display: false,
-                },
                 min: 0.0,
                 max: 1.0,
                 pointLabels: {
@@ -51,7 +69,8 @@ export default function PitchRadarGraph({displayType, statcast}) {
                 },
                 ticks: {
                     count: 5,
-                    stepSize: 0.2
+                    stepSize: 0.2,
+                    display: false,
                 }
             }
         }
@@ -67,24 +86,28 @@ export default function PitchRadarGraph({displayType, statcast}) {
             borderColor: ENUMS.graphColors[p_type][0],
             borderWidth: 2,
             pointBackgroundColor: ENUMS.graphColors[p_type][0],
-            pointBorderColor: '#fff',
+            pointBorderColor: '#000',
+            pointBorderRadius: 1,
+            pointBorderWidth: 1,
             pointHoverBackgroundColor: '#fff',
             pointHoverBorderColor: ENUMS.graphColors[p_type][0],
         }
-        console.log(dataset)
         graphData.push(dataset)
     }
 
     const finalData = {
-        labels: Object.values(ENUMS.pitch_labels),
+        labels: Object.values(metric_labels),
         datasets: graphData
     }
 
     return (
-        <Radar
-            datasetIdKey='id' 
-            data={finalData}
-            options={graphConfig}
-        />
+        <div className={styles.graph}>
+            <Radar
+                datasetIdKey='id' 
+                data={finalData}
+                options={graphConfig}
+                updateMode='resize'
+            />
+        </div>
     )
 }

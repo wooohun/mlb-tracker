@@ -26,7 +26,7 @@ export default async function Home() {
                 <Standings>{standingsData}</Standings>
             </div>
             <div>
-                <Link href={`/players/d3351c6e-12cf-4ab5-b651-ad23d49c4245`}>Kershaw</Link>
+                <Link href={`/players/80de60c9-74e3-4a50-b128-b3dc7456a254`}>Ohtani</Link>
             </div>
         </div>
   )

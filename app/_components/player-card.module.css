@@ -72,19 +72,20 @@
     border-color: black;
 }
 .playerSummaryOverallStats {
-    background-color: gray;
+    background-color: rgb(189, 189, 189);
 }
 .playerSummaryTableBox {
     font-size: 10px;
     text-align: center;
 }
 .playerProfileModule {
-    height: 100%;
+    height: max-content;
     margin-left: 4px;
     border-width: 2px;
     border-color: black;
+    background-color: white;
 }
 .playerProfileModule:last-of-type {
-    grid-column: span 2 / span 2;
     margin-right: 2px;
+    grid-column: span 2;
 }

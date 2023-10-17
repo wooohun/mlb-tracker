@@ -9,7 +9,7 @@ from bson.objectid import ObjectId
 from collections import defaultdict
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
-from scraper import add_statcast, compile_player_data, get_batter_ranks
+from scraper import add_statcast, compile_player_data, get_pitcher_pitches, get_batter_pitches
 
 CONFIG = dotenv.dotenv_values('../mlb-tracker/.env.local')
 CUR_YEAR = datetime.date.year
@@ -141,6 +141,7 @@ def insert_team_profiles():
         time.sleep(1)
         team = db.teamProfiles.insert_one(res)
         time.sleep(1)
+    client.close()
 
 def insert_player_profiles():
     client = create_client()
@@ -173,6 +174,8 @@ def insert_player_profiles():
         )
         print(f'Updated {inserted_player.modified_count} document(s)')
         time.sleep(1)
+    client.close()
+
 def get_api_glossary():
     uri = f'http://api.sportradar.us/mlb/trial/v7/en/league/glossary.json?api_key={CONFIG["API_KEY"]}'
 
@@ -185,6 +188,7 @@ def get_api_glossary():
     client = create_client()
     db = client.mlbDB
     db.glossary.insert_one(res)
+    client.close()
     
 """
     Used to Find 40-man roster for each team per season
@@ -209,6 +213,7 @@ def insert_splits():
                 raise SystemExit(e)
             res = res.json()
             db.splits.insert_one(res)
+    client.close()
 
 def update_embedded_players_to_reference(year):
     client = create_client()
@@ -234,5 +239,98 @@ def update_embedded_players_to_reference(year):
                 {'$set': {f'players.{idx}': {'_id': _id, 'id': id}}}
             )
             print(f'Updated {team["season"]["year"]} {team["abbr"]}: {idx}')
+    client.close()
 
-insert_player_profiles()
+def insert_statcast_pitches():
+    client = create_client()
+    db = client.mlbDB
+    players = db.playerProfiles.find({})
+    count = 0
+    for player in players:
+        if 'seasons' in player.keys():
+            res = []
+            for season in player['seasons']:
+                roles = season.keys()
+                annual_data = {
+                    'year': season['year'],
+                }
+                if 'batting' in roles:
+                    pitches = get_batter_pitches(season['year'], player['mlbamID'])
+                    if pitches:
+                        annual_data['batting'] = pitches
+                if 'pitching' in roles:
+                    pitches = get_pitcher_pitches(season['year'], player['mlbamID'])
+                    if pitches:
+                        annual_data['pitching'] = pitches
+                res.append(annual_data)
+            if res:
+                updated = db.playerProfiles.update_one(
+                    {'mlbamID': player['mlbamID']},
+                    {'$set': {'coordinates': res}}
+                )
+                count += 1
+                print(f'Updated {player["f_name"]} {player["l_name"]}, Total: {count}')
+    players.close()
+    client.close()
+
+# [405395, 500000]
+# [500001, 550000]
+# [550001, 600000]
+# [600001, 625000]
+# [625001, 650000]
+# [650000, 688010]
+STATCAST_PITCH_TYPES = {
+    'CH': 'Changeup', 
+    'CUKC': 'Curveball', 
+    'FC': 'Cutter', 
+    'FF': '4-Seamer', 
+    'KN': 'Knuckleball',
+    'FS': 'Splitter',  
+    'SI': 'Sinker', 
+    'SL': 'Slider', 
+    'ST': 'Sweeper', 
+    'SV': 'Slurve',
+    'EP': 'Eephus',
+    'FO': 'Forkball'
+}
+def clean_coords():
+    client = create_client()
+    db = client.mlbDB
+    players = db.playerProfiles.find({'coordinates': {'$exists': True}}, projection=['mlbamID', 'coordinates', 'nameFull'])
+    for player in players:
+        coords = player['coordinates']
+        for idx, season in enumerate(coords):
+            if 'batting' in season.keys(): 
+                res = defaultdict(list)
+                for metric, coords in season['batting']['pitch_types'].items():
+                    if metric == 'CU':
+                        res['CUKC'].append(coords)
+                    elif metric == 'KC':
+                        res['CUKC'].append(coords)
+                    elif metric == 'SI':
+                        res['SIFT'].append(coords)
+                    elif metric == 'FT':
+                        res['SIFT'].append(coords)
+                    else:
+                        res[metric] = coords
+                player['coordinates'][idx]['batting']['pitch_types'] = res
+
+            if 'pitching' in season.keys():
+                res = defaultdict(list)
+                for metric, coords in season['pitching']['pitch_types'].items():
+                    if metric == 'CU':
+                        res['CUKC'].append(coords)
+                    elif metric == 'KC':
+                        res['CUKC'].append(coords)
+                    elif metric == 'SI':
+                        res['SIFT'].append(coords)
+                    elif metric == 'FT':
+                        res['SIFT'].append(coords)
+                    else:
+                        res[metric] = coords
+                player['coordinates'][idx]['pitching']['pitch_types'] = res
+        updated = db.playerProfiles.update_one({'mlbamID': player['mlbamID']}, {'$set': {'coordinates': player['coordinates']}})
+        print(f'Updated {updated.modified_count} player(s) named {player["nameFull"]}')
+    players.close()
+    client.close()
+clean_coords()

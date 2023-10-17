@@ -1,50 +1,51 @@
 'use client'
 
-import PitchRadarGraph from "./pitch-radar-graph"
-import DumbbellChart from "./dumbbell-chart"
+import RadarGraph from "./radar-graph"
 import React, { useState } from 'react'
+import styles from './visuals.module.css'
+import Dropdown from "./dropdown"
+import PieGraph from "./pie-graph"
 
 export default function PitchSplits({displayType, children}) {
-    const data = children
+    const data = children.sort((a, b) => b.year - a.year)
 
-    const pitch_labels = {
-        'AVG_SPEED': 'Avg Speed',
-        'AVG_SPIN': 'Avg Spin',
-        'run_value': 'Run Value',
-        'whiff_pct': 'Whiff %',
-        'k_pct': 'K %',
-        'est_ba': 'xBA',
+    const years = data.map((season) => season.year)
+    const [season, setSeason] = useState(data[0].year)
+    const [graphData, setGraphData] = useState(getSeason(season))
+
+    function changeSeason(year) {
+        setSeason(year);
+        changeData();
     }
-
-    const years = data.map(({year}) => year)
-    const graphData = data.find(obj => obj.year)
-
-    const [season, setSeason] = useState(years[0])
-
-    function changeYear(year) {
-
+    function changeData(){
+        setGraphData(getSeason(season));
+    }
+    function getSeason(year) {
+        return data.find((obj) => obj.year == year)
     }
 
     return (
-        <div>
-            <div>
-                <div>
-                    <button>
-
-                    </button>
-                    <div>
-
-                    </div>
+        <div className={styles.visualsModule}>
+            <div className={styles.visualsModuleHeader}>
+                <Dropdown cur_year={season} onClick={changeSeason}>{years}</Dropdown>
+                <div className='text-center p-0.5'>
+                    Pitch Splits
                 </div>
             </div>
-            {/* <div className="flex flex-wrap">
-                {Object.keys(pitch_labels).map(()=> (
-                    <<div>
-                        <DumbbellChart ></DumbbellChart>
-                     </div>   >
-                ))}
-            </div> */}
-            <PitchRadarGraph displayType={displayType} statcast={graphData}></PitchRadarGraph>
+            <div className={styles.visualsContainer}>
+                <div className={styles.graphContainer}>
+                    <RadarGraph
+                        displayType={displayType} 
+                        statcast={graphData}
+                    />
+                </div>
+                <div className={styles.graphContainer}>
+                    <PieGraph
+                        displayType={displayType}
+                        statcast={graphData}
+                    />
+                </div>
+            </div>
         </div>
     )
 }
