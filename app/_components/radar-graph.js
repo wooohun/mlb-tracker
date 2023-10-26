@@ -10,6 +10,7 @@ import {
 import { Radar } from "react-chartjs-2";
 import * as ENUMS from '../enums';
 import styles from './visuals.module.css'
+import { useRef } from 'react';
 
 Chart.register(
     RadialLinearScale,
@@ -23,6 +24,8 @@ Chart.register(
 export default function RadarGraph({displayType, statcast}) {
 
     const metric_labels = displayType == 'pitching' ? ENUMS.p_metric_labels : ENUMS.b_metric_labels
+
+    const chartRef = useRef()
 
     const datasets = []
     for (const [p_type, p_data] of Object.entries(statcast[displayType]['pitch_types'])) {
@@ -103,7 +106,7 @@ export default function RadarGraph({displayType, statcast}) {
     return (
         <div className={styles.graph}>
             <Radar
-                datasetIdKey='id' 
+                ref={chartRef}
                 data={finalData}
                 options={graphConfig}
                 updateMode='resize'

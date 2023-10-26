@@ -4,7 +4,7 @@ import pandas as pd
 from pybaseball.lahman import *
 from collections import defaultdict
 from datetime import date, datetime
-from utils import get_player_bio, pair_ranks_with_data, min_max_normalize, avg_sz
+from utils import get_player_bio, pair_ranks_with_data, min_max_normalize, avg_sz_z, avg_sz_x
 from pprint import pprint
 
 
@@ -298,6 +298,8 @@ def compile_player_data():
 
     # For seasons where pitchers recorded both hitting/pitching data
     for p_idx, player in szn_p_data.iterrows():
+        if player['Name'] != 'Shohei Ohtani':
+            continue
         if prev == player['Name']:
             continue
         prev = player['Name']
@@ -386,11 +388,12 @@ def compile_player_data():
                             on='player_name',
                             suffixes=('_rank', None)
                         )
-                        jsn = player_bat_ranks.loc[:, 'xwOBA_rank': ].to_json(orient='index')
-                        ranking_data = list(json.loads(jsn).values())[0]
-                        
-                        bat_ranks = pair_ranks_with_data(ranking_data)
-                        season_ranks['batting'] = bat_ranks
+                        if not merged.empty: 
+                            jsn = merged.loc[:, 'xwOBA_rank': ].to_json(orient='index')
+                            ranking_data = list(json.loads(jsn).values())[0]
+                            
+                            bat_ranks = pair_ranks_with_data(ranking_data)
+                            season_ranks['batting'] = bat_ranks
 
                     # get index of player batting data, drop
                     bat_idx = target_szn_bat_data.index
@@ -484,7 +487,7 @@ def compile_player_data():
                 )
 
                 if not merged.empty:
-                    jsn = player_bat_ranks.loc[:, 'xwOBA_rank': ].to_json(orient='index')
+                    jsn = merged.loc[:, 'xwOBA_rank': ].to_json(orient='index')
                     ranking_data = list(json.loads(jsn).values())[0]
                             
                     bat_ranks = pair_ranks_with_data(ranking_data)
@@ -662,7 +665,8 @@ def get_pitcher_pitches(season, mlbamid):
     sum_of_differences =  data.apply(lambda row: row['sz_top'] - row['sz_bot'], axis=1).sum()
     avg_sz_height = round(sum_of_differences/ len(data), 2).item()
 
-    data['plate_z'] = data.apply(avg_sz, args=(avg_sz_height,), axis=1)
+    data['plate_x'] = data.apply(avg_sz_x, args=(avg_sz_height,), axis=1)
+    data['plate_z'] = data.apply(avg_sz_z, args=(avg_sz_height,), axis=1)
 
     data.drop(columns=['sz_top', 'sz_bot'], inplace=True)
     data = data.loc[data['pitch_type'].notna()]
@@ -676,7 +680,16 @@ def get_pitcher_pitches(season, mlbamid):
             'x': pitch['plate_x'],
             'y': pitch['plate_z']
         }
-        p_types[pitch['pitch_type']].append(coords)
+        p_type = pitch['pitch_type']
+        if p_type == 'CU':
+            p_type = 'CUKC'
+        elif p_type == 'KC':
+            p_type = 'CUKC'
+        elif p_type == 'SI':
+            p_type = 'SIFT'
+        elif p_type == 'FT':
+            p_type = 'SIFT'
+        p_types[p_type].append(coords)
     
     res = {
         'sz_dim': {
@@ -710,10 +723,12 @@ def get_batter_pitches(season, mlbamid):
     szr = round(width['plate_x'].max(), 2)
 
     data.drop(columns=['zone'], inplace=True)
-    sum_of_differences =  data.apply(lambda row: row['sz_top'] - row['sz_bot'], axis=1).sum()
-    avg_sz_height = round(sum_of_differences/ len(data), 2).item()
+    diff_sum =  data.apply(lambda row: row['sz_top'] - row['sz_bot'], axis=1).sum()
 
-    data['plate_z'] = data.apply(avg_sz, args=(avg_sz_height, ), axis=1)
+    avg_sz_height = round(diff_sum/ len(data), 2).item()
+
+    data['plate_x'] = data.apply(avg_sz_x, args=(avg_sz_height, ), axis=1)
+    data['plate_z'] = data.apply(avg_sz_z, args=(avg_sz_height, ), axis=1)
 
     data.drop(columns=['sz_top', 'sz_bot'], inplace=True)
     data = data.loc[data['pitch_type'].notna()]
@@ -727,7 +742,16 @@ def get_batter_pitches(season, mlbamid):
             'x': pitch['plate_x'],
             'y': pitch['plate_z']
         }
-        p_types[pitch['pitch_type']].append(coords)
+        p_type = pitch['pitch_type']
+        if p_type == 'CU':
+            p_type = 'CUKC'
+        elif p_type == 'KC':
+            p_type = 'CUKC'
+        elif p_type == 'SI':
+            p_type = 'SIFT'
+        elif p_type == 'FT':
+            p_type = 'SIFT'
+        p_types[p_type].append(coords)
     
     res = {
         'sz_dim': {
@@ -739,3 +763,5 @@ def get_batter_pitches(season, mlbamid):
         'pitch_types': p_types
     }
     return res
+
+compile_player_data()

@@ -1,6 +1,4 @@
-import { createEdgeRouter } from "next-connect";
 import client from "@/middleware/mongoUtil";
-import PlayerCard from "@/app/_components/player-card";
 import PlayerProfile from "@/app/_components/player-profile";
 
 async function GET(player_id){

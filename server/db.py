@@ -241,10 +241,10 @@ def update_embedded_players_to_reference(year):
             print(f'Updated {team["season"]["year"]} {team["abbr"]}: {idx}')
     client.close()
 
-def insert_statcast_pitches():
+def insert_statcast_pitches(players):
     client = create_client()
     db = client.mlbDB
-    players = db.playerProfiles.find({})
+    players = db.playerProfiles.find({'coordinates': {'$exists': True}}, projection=['f_name', 'l_name','mlbamID', 'seasons', 'coordinates'])
     count = 0
     for player in players:
         if 'seasons' in player.keys():
@@ -304,13 +304,13 @@ def clean_coords():
                 res = defaultdict(list)
                 for metric, coords in season['batting']['pitch_types'].items():
                     if metric == 'CU':
-                        res['CUKC'].append(coords)
+                        res['CUKC'] += coords
                     elif metric == 'KC':
-                        res['CUKC'].append(coords)
+                        res['CUKC'] += coords
                     elif metric == 'SI':
-                        res['SIFT'].append(coords)
+                        res['SIFT'] += coords
                     elif metric == 'FT':
-                        res['SIFT'].append(coords)
+                        res['SIFT'] += coords
                     else:
                         res[metric] = coords
                 player['coordinates'][idx]['batting']['pitch_types'] = res
@@ -319,13 +319,13 @@ def clean_coords():
                 res = defaultdict(list)
                 for metric, coords in season['pitching']['pitch_types'].items():
                     if metric == 'CU':
-                        res['CUKC'].append(coords)
+                        res['CUKC'] += coords
                     elif metric == 'KC':
-                        res['CUKC'].append(coords)
+                        res['CUKC'] += coords
                     elif metric == 'SI':
-                        res['SIFT'].append(coords)
+                        res['SIFT'] += coords
                     elif metric == 'FT':
-                        res['SIFT'].append(coords)
+                        res['SIFT']+= coords
                     else:
                         res[metric] = coords
                 player['coordinates'][idx]['pitching']['pitch_types'] = res
@@ -333,4 +333,49 @@ def clean_coords():
         print(f'Updated {updated.modified_count} player(s) named {player["nameFull"]}')
     players.close()
     client.close()
-clean_coords()
+
+insert_player_profiles()
+# client = create_client()
+# db = client.mlbDB
+# ohtani = db.playerProfiles.find({'l_name': 'Ohtani'}, projection=['mlbamID', 'coordinates', 'nameFull'])
+# res = []
+# ohtani = ohtani[0]
+# for idx, season in enumerate(ohtani['coordinates']):
+#     roles = season.keys()
+#     annual_data = {
+#         'year': season['year'],
+#     }
+#     if 'batting' in roles:
+#         pitches = get_batter_pitches(season['year'], ohtani['mlbamID'])
+#         if pitches:
+#             annual_data['batting'] = pitches
+#     if 'pitching' in roles:
+#         pitches = get_pitcher_pitches(season['year'], ohtani['mlbamID'])
+#         if pitches:
+#             annual_data['pitching'] = pitches
+#     res.append(annual_data)
+#     if res:
+#         updated = db.playerProfiles.update_one(
+#             {'mlbamID': ohtani['mlbamID']},
+#             {'$set': {'coordinates': res}}
+#         )
+# for player in players:
+#     for idx, season in enumerate(player['coordinates']):
+#         roles = season.keys()
+
+#         if 'pitching' in roles:
+#             res = defaultdict(list)
+#             for metric, coords in season['pitching']['pitch_types'].items():
+#                 if metric == 'CU':
+#                     res['CUKC'] += coords
+#                 elif metric == 'KC':
+#                     res['CUKC'] += coords
+#                 elif metric == 'SI':
+#                     res['SIFT'] += coords
+#                 elif metric == 'FT':
+#                     res['SIFT'] += coords
+#                 else:
+#                     res[metric] = coords
+#             player['coordinates'][idx]['pitching']['pitch_types'] = res
+#     updated = db.playerProfiles.update_one({'mlbamID': player['mlbamID']}, {'$set': {'coordinates': player['coordinates']}})
+#     print(f'Updated {updated.modified_count} player(s) named {player["nameFull"]}')

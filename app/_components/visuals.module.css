@@ -38,6 +38,7 @@
     flex-wrap: wrap;
     flex-direction: row;
     padding: 4px;
+    justify-content: center;
 }
 .visualsContainer:nth-child(odd) {
     border-left: 1px black;
@@ -45,11 +46,16 @@
     
 .graphContainer {
     flex: 0 1 auto;
-    height: 50%;
-    width: 50%;
-    padding: 4px;
+    height: 48%;
+    width: 48%;
+    padding: 8px;
 }
-.graph {
+.graphContainer:nth-of-type(-n + 2) {
     border-bottom: 1px solid black;
-    padding: 2px;
+}
+.graphContainer:nth-of-type(even) {
+    border-left: 1px solid black;
+}
+.rankGraph {
+    padding-bottom: 1px;
 }

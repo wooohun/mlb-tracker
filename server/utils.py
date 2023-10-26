@@ -196,7 +196,10 @@ def min_max_normalize(df):
         Float
 """
 
-def avg_sz(row, avg_sz_height): 
+def avg_sz_z(row, avg_sz_height): 
     delta = (row['sz_top'] - row['sz_bot']) / avg_sz_height
     return round(row['plate_z'] * (2-delta), 2)
 
+def avg_sz_x(row, avg_sz_height):
+    delta = (row['sz_top'] - row['sz_bot']) / avg_sz_height
+    return round(row['plate_x'] * (2-delta), 2)

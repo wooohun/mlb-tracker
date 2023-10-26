@@ -9,6 +9,7 @@ export default function PlayerProfile(props) {
     const data = props.children
     data['seasons'].sort((a, b) => a.year - b.year);
     data['statcast'].sort((a, b) => a.year - b.year);
+    
 
     const [pageType, setPageType] = useState(data.primary_position.includes('P') ? 'pitching' : 'batting')
 
@@ -20,7 +21,7 @@ export default function PlayerProfile(props) {
                         <PlayerCard displayType={pageType} setPageType={setPageType}>{data}</PlayerCard>
                     </div>
                     <div className={styles.playerProfileModule}>
-                        <PitchSplits displayType={pageType}>{data.statcast}</PitchSplits>
+                        <PitchSplits displayType={pageType}>{data}</PitchSplits>
                     </div>
                 </div>
             </div>

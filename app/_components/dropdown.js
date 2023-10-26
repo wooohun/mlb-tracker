@@ -6,8 +6,8 @@ import { Menu } from '@headlessui/react'
 export default function Dropdown( { onClick, cur_year, children } ) {
     
     function handleSeasonChange(e) {
-        let target = e.target.innerHTML
-        onClick(target)
+        let target = e.target.innerHTML;
+        onClick(target);
     }
     return (
         <Menu as="div" className='relative'>
